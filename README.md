@@ -1,3 +1,66 @@
+Technical Documentation
+
+Given the microservices provided and the requirements the system had to have,
+i have develop de following solution:
+
+	- Functional solution:
+	
+		-> right now the public-service recives a petition wich contains the email of the user
+		   that wants to subscribe to a sale, this email is proccess (creates an event with that email) 
+		   by this microservice and pass to adiClub-service, this is posible using kafka as a message bus.
+
+		-> When the adiClub-service consumes the event from the topic(kafka), using that email,
+		   finds and retrieves the AdiClubMembre data, it creates the AdiClubMember, puts that
+		   AdiClubMember in an event and that info (using a kafka topic again) is pass to a the next 
+		   microservice wich is the member-service.
+
+		-> The member-service is responsible of updating a list of subscriptions with the new subscription, 
+		   this list is stored in redis. 
+
+		-> after that the email-service is responsible for every minute, grabing the list, orders it 
+		   (using points and the ristrationDate as parameters) and grabs the first AdiClubMember
+		   on the list, gets the email from this subscription and notifys the user by email.
+
+
+
+	- NonFunctional Solution:
+
+		-> exceptionHandling/RESTResponses: For this i have implemented diferent annotations provided by springboot like 
+			* @ExceptionHandler(Exception.class) which together with a method on the controller is able to capture 
+			  any exception and notify the user instantly.
+			* A custom class call ExceptionHandler, which catches any unCaughtException and notifys the user that hes subscription could
+			  not be proccess.
+
+		-> UnitTesting has been implemented using jUnit and mockito.
+
+		-> Scale horizontally based on incoming load: thinking of scaling horizontally is the reason i decided to use kafka as a message bus,
+		   given that can handle petabytes of data without losing performance or compromising data integrity.
+
+		-> Design for failure: given that each microservices has an hexagonal Arquitecture, we can easily isolate where an error is produce and handled with easy.
+		   Also because we use kafka, all microservices are decoupled from each other given us a the perk that if one microservice is down, the others can
+		   continue working. Also i used the spring boot annotation @Retryable which gives the microservice the ability that in the case kafka/redis is down, it can
+		   give a couple of tries before it aborts which is pattern that can help improve system resilience.
+
+
+	- Missing requirements:
+
+	    -> if i had a little more time i would of implemented the CI/CD pipeline in the following way:
+	    	CI:
+	    	* I would creat a .yaml with the confiuration for the pipelines
+	    	* define the variables we are going to use
+	    	* create the first stage which would run the unit tests and at the same it would build the project
+	    	* another stage to configure sonarQube connection
+	    	* another stage so we can do static code analysis through sonarQube
+	    	
+	    	CD:
+	    	* compress build
+	    	* publish the compress build
+	    	* publish the dockerfile
+
+
+The system can be started with all its microservices, redis and kafka using ```docker-compose up -d --build```
+
+
 # What to do?
 The repo contains a skeleton of 4 Spring Boot applications, plus a Docker Compose configuration which spins up the following working environment.
 
