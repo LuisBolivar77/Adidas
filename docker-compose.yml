@@ -1,6 +1,57 @@
 version: "3.5"
 
 services:
+  redis:
+    container_name: redis
+    hostname: redis
+    image: redis:latest
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - AdiSubscriptionNetwork
+
+  zookeeper:
+    hostname: zookeeper
+    container_name: zookeeper
+    image: confluentinc/cp-zookeeper:latest
+    restart: always
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - AdiSubscriptionNetwork
+
+  kafka:
+    container_name: kafka
+    hostname: kafka
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    networks:
+      - AdiSubscriptionNetwork
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_ADVERTISED_HOST_NAME: kafka
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  kafka-ui:
+    image: landoop/fast-data-dev:latest
+    hostname: kafka-ui
+    container_name: kafka-ui
+    ports:
+      - "3030:3030"
+    environment:
+      KAFKA_REST_PROXY_URL: "http://kafka:8082"
+    depends_on:
+      - kafka
+    links:
+      - kafka
+      - zookeeper
+
   public-service:
     image: localhost/adidas-be-challenge-publicservice:latest
     container_name: adidas-be-challenge-publicservice
@@ -10,7 +61,13 @@ services:
     ports:
       - "8080:8080"
     links:
-      - "priority-sale-service"
+      - "adi-club-service"
+    networks:
+      - AdiSubscriptionNetwork
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
 
   priority-sale-service:
     image: localhost/adidas-be-challenge-prioritysaleservice:latest
@@ -19,8 +76,17 @@ services:
       context: priority-sale-service
       dockerfile: Dockerfile
     links:
-      - "adi-club-service"
       - "email-service"
+      - redis
+    networks:
+      - AdiSubscriptionNetwork
+    depends_on:
+      - kafka
+      - redis
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
 
   adi-club-service:
     image: localhost/adidas-be-challenge-adiclubservice:latest
@@ -28,6 +94,17 @@ services:
     build:
       context: adiclub-service
       dockerfile: Dockerfile
+    links:
+      - "priority-sale-service"
+      - redis
+    networks:
+      - AdiSubscriptionNetwork
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
 
   email-service:
     image: localhost/adidas-be-challenge-emailservice:latest
@@ -35,3 +112,11 @@ services:
     build:
       context: email-service
       dockerfile: Dockerfile
+    networks:
+      - AdiSubscriptionNetwork
+    depends_on:
+      - redis
+
+networks:
+  AdiSubscriptionNetwork:
+    driver: bridge

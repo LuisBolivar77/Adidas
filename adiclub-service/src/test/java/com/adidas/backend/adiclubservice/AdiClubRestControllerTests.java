@@ -13,8 +13,8 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import java.time.Instant;
 import java.util.Objects;
 
-import com.adidas.backend.adiclubservice.controller.AdiClubRestController;
-import com.adidas.backend.adiclubservice.dto.AdiClubMemberInfoDto;
+import com.adidas.backend.adiclubservice.infrastructure.entry_point.AdiClubRestController;
+import com.adidas.backend.adiclubservice.domain.AdiClubMember;
 
 @ExtendWith(SpringExtension.class)
 @WebMvcTest(value = AdiClubRestController.class)
@@ -27,7 +27,7 @@ class AdiClubRestControllerTests {
 	@ValueSource(strings =
 			{"user1@gmail.com", "user2@gmail.com", "user3@adiclub.com", "user4@adiclub.com"})
 	void getAdiClubMemberInfoTest(String email) {
-		ResponseEntity<AdiClubMemberInfoDto> response = adiClubRestController.getAdiClubMemberInfo(email);
+		ResponseEntity<AdiClubMember> response = adiClubRestController.getAdiClubMemberInfo(email);
 		Assertions.assertEquals(HttpStatus.OK, response.getStatusCode());
 		Assertions.assertInstanceOf(Integer.class, Objects.requireNonNull(response.getBody()).getPoints());
 		Assertions.assertInstanceOf(Instant.class, response.getBody().getRegistrationDate());
